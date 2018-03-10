@@ -21,14 +21,25 @@ router.post('/create', async(req, res) => {
     res.json(e)
   }
 });
-router.post('/next', (req, res) => res.json({ status: 200, message: 'test' }));
+router.post('/play/next', (req, res) => res.json({ status: 200, message: 'test' }));
 router.post('/toggle', (req, res) => res.json({ status: 200, message: 'test' }));
 router.post('/limit', (req, res) => res.json({ status: 200, message: 'test' }));
 
-router.get('/next', (req, res) => res.json({ status: 200, message: 'next' }));
-router.get('/current', (req, res) => {
-  const result = handlers.test();
-  res.json(result);
+router.get('/next/:channel', async(req, res) => {
+  try {
+    const result = await handlers.getNext(req.params);
+    res.json(result)
+  } catch (e) {
+    res.json(e)
+  }
+});
+router.get('/current/:channel', async(req, res) => {
+  try {
+    const result = await handlers.getCurrent(req.params);
+    res.json(result);
+  } catch (e) {
+    res.json(e)
+  }
 });
 
 module.exports = router;
