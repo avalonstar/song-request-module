@@ -1,0 +1,20 @@
+{
+  "name": "song-request-module",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "author": "ChatLurking <anneglines@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon src/app/index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "dotenv": "^5.0.1",
+    "express": "^4.16.2",
+    "firebase-admin": "^5.9.1",
+    "node-fetch": "^2.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^1.17.1"
+  }
+}
