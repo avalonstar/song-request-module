@@ -1,44 +1,53 @@
-/*
-
-  routes:
-    POST /:user/request/create
-    GET /:user/request/next
-    GET /:user/request/current
-    GET /:user/play/next
-    POST /:user/request/on
-    POST /:user/request/off
-
-*/
-
 const router = require('express').Router();
 const handlers = require('./handlers');
 
-router.post('/create', async(req, res) => {
+router.post('/create', async (req, res) => {
   try {
     const result = await handlers.createRequest(req.body);
     res.json(result);
   } catch (e) {
-    res.json(e)
+    res.json(e);
   }
 });
-router.post('/play/next', (req, res) => res.json({ status: 200, message: 'test' }));
-router.post('/toggle', (req, res) => res.json({ status: 200, message: 'test' }));
-router.post('/limit', (req, res) => res.json({ status: 200, message: 'test' }));
+router.post('/play/next', async (req, res) => {
+  try {
+    const result = await handlers.playNext(req.body);
+    res.json(result);
+  } catch (e) {
+    res.json(e);
+  }
+});
+router.post('/toggle', async (req, res) => {
+  try {
+    const result = handlers.setStatus(req.body);
+    res.statusCode(200);
+  } catch (e) {
+    res.json(e);
+  }
+});
+router.post('/limit', (req, res) => {
+  try {
+    const result = handlers.setLimit(req.body);
+    res.statusCode(200);
+  } catch (e) {
+    res.json(e);
+  }
+});
 
-router.get('/next/:channel', async(req, res) => {
+router.get('/next/:channel', async (req, res) => {
   try {
     const result = await handlers.getNext(req.params);
-    res.json(result)
+    res.json(result);
   } catch (e) {
-    res.json(e)
+    res.json(e);
   }
 });
-router.get('/current/:channel', async(req, res) => {
+router.get('/current/:channel', async (req, res) => {
   try {
     const result = await handlers.getCurrent(req.params);
     res.json(result);
   } catch (e) {
-    res.json(e)
+    res.json(e);
   }
 });
 
