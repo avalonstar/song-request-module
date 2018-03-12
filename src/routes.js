@@ -51,4 +51,13 @@ router.get('/current/:channel', async (req, res) => {
   }
 });
 
+router.get('/auth/spotify', async (req, res) => {
+  try {
+    const result = await handlers.spotifyAuth();
+    res.json({ message: 'pass' });
+  } catch (e) {
+    res.json({ message: 'fail' });
+  }
+});
+
 module.exports = router;

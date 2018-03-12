@@ -1,15 +1,37 @@
 const globals = require('./globals');
 const fetch = require('node-fetch');
+const formurlencoded = require('form-urlencoded');
 
 const songList = '/song-request/song-list';
 const userList = '/song-request/user-list';
 const settingsRef = '/song-request/settings';
 
-const test = () => {
-  return {
-    status: 200,
-    message: 'sup',
+const test = async (values) => {
+  const video = await getVideoInfo(values.song);
+  console.log(video);
+  return video;
+};
+
+const spotifyAuth = async () => {
+  const auth = new Buffer(
+    `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+  ).toString('base64');
+  const ops = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${auth}`,
+    },
+    body: formurlencoded({
+      grant_type: 'client_credentials',
+    }),
   };
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', ops);
+    console.log(r);
+  } catch (e) {
+    console.log(e);
+  }
 };
 
 const createRequest = async (values) => {
