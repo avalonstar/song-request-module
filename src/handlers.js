@@ -15,7 +15,7 @@ const test = () => {
 const createRequest = async (values) => {
   if (!globals.db) return { error: 'no db found' };
   const { channel, user, song } = values;
-  if (!channel || !user | !song) return { error: 'invalid paramaters found' };
+  if (!channel || !user | !song) return { error: 'invalid paramaters' };
   const listRef = `${channel}/${songList}`;
   const userRef = `${channel}/${userList}`;
   try {
@@ -25,7 +25,7 @@ const createRequest = async (values) => {
     if (video.error) return video.error;
 
     const requestCount = await findUser(userRef, user);
-    if (!requestCount || requestCount < settings.limit) {
+    if (!requestCount || requestCount <= settings.limit) {
       globals.db
         .ref()
         .child(`${userRef}`)
@@ -91,6 +91,7 @@ const getCurrent = async (values) => {
 const setStatus = async (values) => {
   if (!globals.db) return { error: 'no db found' };
   const { channel, status } = values;
+  if ((!channel, !status)) return { error: 'invalid parameters' };
   try {
     await globals.db
       .ref()
@@ -148,6 +149,7 @@ module.exports = {
   setStatus,
   setLimit,
   playNext,
+  spotifyAuth,
 };
 
 const findUser = async (ref, user) => {
@@ -193,9 +195,11 @@ const getSettings = async (channel) => {
 const getVideoInfo = async (song) => {
   if (!song) return { error: 'song not found' };
   const youtubeRegex = /(youtube.com\/watch\?v=)|(youtu.be\/)/gi;
-  let split = song.split(youtubeRegex);
+  const spotifyRegex = /(open.spotify.com\/track)|(spotify:track)/gi;
+  let youtubeSplit = song.split(youtubeRegex);
+  let spotifySplit = song.split(spotifyRegex);
   try {
-    if (split.length > 1) {
+    if (youtubeSplit.length > 1) {
       const info = await fetch(
         `https://www.youtube.com/oembed?url=https://youtu.be/${split.pop()}&format=json`
       );
@@ -206,6 +210,8 @@ const getVideoInfo = async (song) => {
         authorName: data.author_name,
         url: song,
       };
+    } else if (spotifySplit.length > 1) {
+      return { song };
     } else {
       const info = await fetch(
         `https://www.youtube.com/oembed?url=https://youtu.be/${song}&format=json`
