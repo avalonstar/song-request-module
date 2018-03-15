@@ -217,11 +217,12 @@ const getSettings = async (channel) => {
 const getVideoInfo = async (song) => {
   if (!song) return { error: 'song not found' };
   const youtubeRegex = /(youtube.com\/watch\?v=)|(youtu.be\/)/gi;
-  const spotifyRegex = /(open.spotify.com\/track)|(spotify:track)/gi;
-  let youtubeSplit = song.split(youtubeRegex);
-  let spotifySplit = song.split(spotifyRegex);
+  const spotifyRegex = /(?:open.spotify.com\/track\/)([a-zA-Z0-9]+)|(spotify:track:)/gi;
+  const youtubeMatch = youtubeRegex.exec(song);
+  const spotifyMatch = spotifyRegex.exec(song);
+
   try {
-    if (youtubeSplit.length > 1) {
+    if (youtubeMatch) {
       const info = await fetch(
         `https://www.youtube.com/oembed?url=https://youtu.be/${split.pop()}&format=json`
       );
@@ -232,8 +233,13 @@ const getVideoInfo = async (song) => {
         authorName: data.author_name,
         url: song,
       };
-    } else if (spotifySplit.length > 1) {
-      return { song };
+    } else if (spotifyMatch) {
+      console.log(spotifyMatch)
+      if (spotifyMatch[4] === 0) {
+        return { song }
+      }
+      const uri = `spotify:track:${spotifyMatch[1]}`
+      return { uri };
     } else {
       const info = await fetch(
         `https://www.youtube.com/oembed?url=https://youtu.be/${song}&format=json`

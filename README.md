@@ -1,6 +1,7 @@
 # Setup
 
 Requires an express server and a Firebase database.
+Everything will be stored under [user]/song-request
 
 ```
 const app = require('express')();
