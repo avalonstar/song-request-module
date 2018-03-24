@@ -1,5 +1,4 @@
 const globals = require('./globals');
-const fetch = require('node-fetch');
 const formurlencoded = require('form-urlencoded');
 const axios = require('axios');
 const moment = require('moment');
@@ -293,7 +292,7 @@ const getVideoInfo = async (song) => {
       let tokens = await getSpotifyAuth();
       const id = spotifyMatch1 || spotifyMatch2;
 
-      if (tokens.expires_in >= moment().unix()) {
+      if (moment().unix() < tokens.expires_in) {
         tokens = await spotifyAuth();
       }
 
