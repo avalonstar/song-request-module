@@ -2,6 +2,7 @@ const globals = require('./globals');
 const fetch = require('node-fetch');
 const formurlencoded = require('form-urlencoded');
 const axios = require('axios');
+const moment = require('moment');
 
 const songList = '/song-request/song-list';
 const userList = '/song-request/user-list';
@@ -31,11 +32,17 @@ const spotifyAuth = () => {
     })
     .then((response) => {
       const { data } = response;
+      const newData = {
+        ...data,
+        expires_in: moment()
+          .add(59, 'min')
+          .unix(),
+      };
       globals.db
         .ref()
         .child(`authentication/song-request/spotify`)
-        .update(data);
-      return { access_token: data.access_token };
+        .update(newData);
+      return { access_token: newData.access_token };
     })
     .catch((error) => {
       const { status, statusText } = error;
@@ -231,7 +238,7 @@ const getSpotifyAuth = async () => {
       .once('value', (snap) => {
         return snap;
       });
-    return snap.val().access_token;
+    return snap.val();
   } catch (e) {}
 };
 
@@ -267,18 +274,30 @@ const getVideoInfo = async (song) => {
           return { error: 'Song Not Found' };
         });
     } else if (spotifyMatch1 || spotifyMatch2) {
-      const tokens = await getSpotifyAuth();
+      let tokens = await getSpotifyAuth();
       const id = spotifyMatch1 || spotifyMatch2;
-      const info = await fetch(`https://api.spotify.com/v1/tracks/${id[1]}`, {
-        headers: { Authorization: `Bearer ${tokens}` },
-      });
-      const data = await info.json();
-      return {
-        title: data.name,
-        provider: 'Spotify',
-        artist: data.artists.name,
-        url: data.uri,
-      };
+
+      if (tokens.expires_in >= moment().unix()) {
+        tokens = await spotifyAuth();
+      }
+
+      return axios
+        .get(`https://api.spotify.com/v1/tracks/${id[1]}`, {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        })
+        .then((res) => {
+          const { name, artists, uri } = res.data;
+          const artist = artists.map((item) => item.name).join(', ');
+          return {
+            title: name,
+            provider: 'Spotify',
+            artist: artist,
+            url: uri,
+          };
+        })
+        .catch(async (err) => {
+          return { error: 'song not found' };
+        });
     } else {
       return axios
         .get(
