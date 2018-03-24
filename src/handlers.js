@@ -4,15 +4,9 @@ const formurlencoded = require('form-urlencoded');
 const axios = require('axios');
 const moment = require('moment');
 
-const songList = '/song-request/song-list';
-const userList = '/song-request/user-list';
-const settingsRef = '/song-request/settings';
-
-const test = async (values) => {
-  const video = await getVideoInfo(values.song);
-  console.log(video);
-  return video;
-};
+const SONG_LIST = '/song-request/song-list';
+const USER_LIST = '/song-request/user-list';
+const SETTINGS_REF = '/song-request/settings';
 
 const spotifyAuth = () => {
   const auth = new Buffer(
@@ -42,7 +36,7 @@ const spotifyAuth = () => {
         .ref()
         .child(`authentication/song-request/spotify`)
         .update(newData);
-      return { access_token: newData.access_token };
+      return newData;
     })
     .catch((error) => {
       const { status, statusText } = error;
@@ -54,13 +48,14 @@ const createRequest = async (values) => {
   if (!globals.db) return { error: 'no db found' };
   const { channel, user, song } = values;
   if (!channel || !user | !song) return { error: 'invalid paramaters' };
-  const listRef = `${channel}/${songList}`;
-  const userRef = `${channel}/${userList}`;
+  const listRef = `${channel}/${SONG_LIST}`;
+  const userRef = `${channel}/${USER_LIST}`;
   try {
     const settings = await getSettings(channel);
-    if (!settings.isOn) return { error: 'song requests are not on' };
+    if (!settings.isOn)
+      return { user, channel, error: 'song requests are not on' };
     const video = await getVideoInfo(song);
-    if (video.error) return video.error;
+    if (video.error) return { ...video, channel, user, song };
 
     const requestCount = await findUser(userRef, user);
     if (!requestCount || requestCount <= settings.limit) {
@@ -77,7 +72,12 @@ const createRequest = async (values) => {
         });
       return { status: 200, ...video, user, message: 'success' };
     } else {
-      return { status: 200, error: 'too many requests in queue' };
+      return {
+        status: 200,
+        user,
+        channel,
+        error: 'too many requests in queue',
+      };
     }
   } catch (e) {
     return e;
@@ -93,7 +93,7 @@ const getNext = async (values) => {
     if (!settings.isOn) return { error: 'song requests are not on' };
     const snap = await globals.db
       .ref()
-      .child(`${channel}/${songList}`)
+      .child(`${channel}/${SONG_LIST}`)
       .limitToFirst(2)
       .once('value', (snap) => {
         return snap;
@@ -114,7 +114,7 @@ const getCurrent = async (values) => {
     if (!settings.isOn) return { error: 'song requests are not on' };
     const snap = await globals.db
       .ref()
-      .child(`${channel}/${songList}`)
+      .child(`${channel}/${SONG_LIST}`)
       .limitToFirst(1)
       .once('value', (snap) => {
         return snap;
@@ -133,7 +133,7 @@ const setStatus = async (values) => {
   try {
     await globals.db
       .ref()
-      .child(`${channel}/${settingsRef}`)
+      .child(`${channel}/${SETTINGS_REF}`)
       .update({ isOn: status });
     return {};
   } catch (e) {
@@ -147,7 +147,7 @@ const setLimit = async (values) => {
   try {
     await globals.db
       .ref()
-      .child(`${channel}/${settingsRef}`)
+      .child(`${channel}/${SETTINGS_REF}`)
       .update({ limit: limit });
     return {};
   } catch (e) {
@@ -158,29 +158,43 @@ const setLimit = async (values) => {
 const playNext = async (values) => {
   if (!globals.db) return { error: 'no db found' };
   const { channel } = values;
+  const userRef = `${channel}/${USER_LIST}`;
   try {
     const next = await globals.db
       .ref()
-      .child(`${channel}/${songList}`)
+      .child(`${channel}/${SONG_LIST}`)
       .limitToFirst(2)
       .once('value', (snap) => {
         return snap;
       });
-    await globals.db
+    globals.db
       .ref()
-      .child(`${channel}/${songList}`)
+      .child(`${channel}/${SONG_LIST}`)
       .update({
         [Object.keys(next.val())[0]]: null,
       });
-    return Object.values(next.val())[1] || {};
+    if (Object.keys(next.val()).length === 1) {
+      const user = Object.values(next.val())[0].user;
+      const requestCount = await findUser(userRef, user);
+      globals.db
+        .ref()
+        .child(`${userRef}`)
+        .update({ [user]: requestCount - 1 });
+      return Object.values(next.val())[0];
+    }
+    const user = Object.values(next.val())[1].user;
+    const requestCount = await findUser(userRef, user);
+    globals.db
+      .ref()
+      .child(`${userRef}`)
+      .update({ [user]: requestCount - 1 });
+    return Object.values(next.val())[1];
   } catch (e) {
-    console.log(e);
     return { error: 'error fetching next' };
   }
 };
 
 module.exports = {
-  test,
   createRequest,
   getNext,
   getCurrent,
@@ -209,14 +223,14 @@ const getSettings = async (channel) => {
   try {
     const snap = await globals.db
       .ref()
-      .child(`${channel}/${settingsRef}`)
+      .child(`${channel}/${SETTINGS_REF}`)
       .once('value', (snap) => {
         return snap;
       });
     if (!snap.val()) {
       await globals.db
         .ref()
-        .child(`${channel}/${settingsRef}`)
+        .child(`${channel}/${SETTINGS_REF}`)
         .set({ limit: 5, isOn: true });
       return {
         limit: 5,
@@ -243,6 +257,8 @@ const getSpotifyAuth = async () => {
 };
 
 const getVideoInfo = async (song) => {
+  if (/(soundcloud)/.exec(song))
+    return { error: 'Soundcloud is not supported' };
   const youtubeRegex1 = /(?:youtube.com\/watch\?v=)([a-zA-Z0-9]+)/gi;
   const youtubeRegex2 = /(?:youtu.be\/)([a-zA-Z0-9]+)/gi;
   const spotifyRegex1 = /(?:open.spotify.com\/track\/)([a-zA-Z0-9]+)/gi;
