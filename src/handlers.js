@@ -17,7 +17,7 @@ const spotifyAuth = () => {
   const auth = new Buffer(
     `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
   ).toString('base64');
-  axios
+  return axios
     .request({
       method: 'POST',
       url: 'https://accounts.spotify.com/api/token',
@@ -35,10 +35,11 @@ const spotifyAuth = () => {
         .ref()
         .child(`authentication/song-request/spotify`)
         .update(data);
+      return { access_token: data.access_token };
     })
     .catch((error) => {
-      const { status, statusText } = error
-      return { status, statusText }
+      const { status, statusText } = error;
+      return { status, statusText };
     });
 };
 
@@ -247,19 +248,24 @@ const getVideoInfo = async (song) => {
   try {
     if (youtubeMatch1 || youtubeMatch2) {
       const id = youtubeMatch1 || youtubeMatch2;
-
-      const info = await fetch(
-        `https://www.youtube.com/oembed?url=https://youtu.be/${
-          id[1]
-        }&format=json`
-      );
-      const data = await info.json();
-      return {
-        title: data.title,
-        provider: data.provider_name,
-        artist: data.author_name,
-        url: song,
-      };
+      return axios
+        .get(
+          `https://www.youtube.com/oembed?url=https://youtu.be/${
+            id[1]
+          }&format=json`
+        )
+        .then((res) => {
+          const { title, provider_name, author_name } = res.data;
+          return {
+            title: title,
+            provider: provider_name,
+            artist: author_name,
+            url: song,
+          };
+        })
+        .catch((err) => {
+          return { error: 'Song Not Found' };
+        });
     } else if (spotifyMatch1 || spotifyMatch2) {
       const tokens = await getSpotifyAuth();
       const id = spotifyMatch1 || spotifyMatch2;
@@ -274,16 +280,22 @@ const getVideoInfo = async (song) => {
         url: data.uri,
       };
     } else {
-      const info = await fetch(
-        `https://www.youtube.com/oembed?url=https://youtu.be/${song}&format=json`
-      );
-      const data = await info.json();
-      return {
-        title: data.title,
-        provider: data.provider_name,
-        artist: data.author_name,
-        url: `https://youtu.be/${song}`,
-      };
+      return axios
+        .get(
+          `https://www.youtube.com/oembed?url=https://youtu.be/${song}&format=json`
+        )
+        .then((res) => {
+          const { title, provider_name, author_name } = res.data;
+          return {
+            title: title,
+            provider: provider_name,
+            artist: author_name,
+            url: `https://youtu.be/${song}`,
+          };
+        })
+        .catch((err) => {
+          return { error: 'Song Not Found' };
+        });
     }
   } catch (e) {
     console.log(e);
