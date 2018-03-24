@@ -3,5 +3,6 @@ const globals = require('./globals');
 
 module.exports = (db) => {
   globals.db = db;
+
   return routes;
 };

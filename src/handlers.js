@@ -1,6 +1,7 @@
 const globals = require('./globals');
 const fetch = require('node-fetch');
 const formurlencoded = require('form-urlencoded');
+const axios = require('axios');
 
 const songList = '/song-request/song-list';
 const userList = '/song-request/user-list';
@@ -12,26 +13,33 @@ const test = async (values) => {
   return video;
 };
 
-const spotifyAuth = async () => {
+const spotifyAuth = () => {
   const auth = new Buffer(
     `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
   ).toString('base64');
-  const ops = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${auth}`,
-    },
-    body: formurlencoded({
-      grant_type: 'client_credentials',
-    }),
-  };
-  try {
-    const r = await fetch('https://accounts.spotify.com/api/token', ops);
-    console.log(r);
-  } catch (e) {
-    console.log(e);
-  }
+  axios
+    .request({
+      method: 'POST',
+      url: 'https://accounts.spotify.com/api/token',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${auth}`,
+      },
+      data: formurlencoded({
+        grant_type: 'client_credentials',
+      }),
+    })
+    .then((response) => {
+      const { data } = response;
+      globals.db
+        .ref()
+        .child(`authentication/song-request/spotify`)
+        .update(data);
+    })
+    .catch((error) => {
+      const { status, statusText } = error
+      return { status, statusText }
+    });
 };
 
 const createRequest = async (values) => {
@@ -214,32 +222,57 @@ const getSettings = async (channel) => {
   }
 };
 
+const getSpotifyAuth = async () => {
+  try {
+    const snap = await globals.db
+      .ref()
+      .child(`authentication/song-request/spotify`)
+      .once('value', (snap) => {
+        return snap;
+      });
+    return snap.val().access_token;
+  } catch (e) {}
+};
+
 const getVideoInfo = async (song) => {
-  if (!song) return { error: 'song not found' };
-  const youtubeRegex = /(youtube.com\/watch\?v=)|(youtu.be\/)/gi;
-  const spotifyRegex = /(?:open.spotify.com\/track\/)([a-zA-Z0-9]+)|(spotify:track:)/gi;
-  const youtubeMatch = youtubeRegex.exec(song);
-  const spotifyMatch = spotifyRegex.exec(song);
+  const youtubeRegex1 = /(?:youtube.com\/watch\?v=)([a-zA-Z0-9]+)/gi;
+  const youtubeRegex2 = /(?:youtu.be\/)([a-zA-Z0-9]+)/gi;
+  const spotifyRegex1 = /(?:open.spotify.com\/track\/)([a-zA-Z0-9]+)/gi;
+  const spotifyRegex2 = /(?:spotify:track:)([a-zA-Z0-9]+)/gi;
+  const youtubeMatch1 = youtubeRegex1.exec(song);
+  const youtubeMatch2 = youtubeRegex2.exec(song);
+  const spotifyMatch1 = spotifyRegex1.exec(song);
+  const spotifyMatch2 = spotifyRegex2.exec(song);
 
   try {
-    if (youtubeMatch) {
+    if (youtubeMatch1 || youtubeMatch2) {
+      const id = youtubeMatch1 || youtubeMatch2;
+
       const info = await fetch(
-        `https://www.youtube.com/oembed?url=https://youtu.be/${split.pop()}&format=json`
+        `https://www.youtube.com/oembed?url=https://youtu.be/${
+          id[1]
+        }&format=json`
       );
       const data = await info.json();
       return {
         title: data.title,
         provider: data.provider_name,
-        authorName: data.author_name,
+        artist: data.author_name,
         url: song,
       };
-    } else if (spotifyMatch) {
-      console.log(spotifyMatch)
-      if (spotifyMatch[4] === 0) {
-        return { song }
-      }
-      const uri = `spotify:track:${spotifyMatch[1]}`
-      return { uri };
+    } else if (spotifyMatch1 || spotifyMatch2) {
+      const tokens = await getSpotifyAuth();
+      const id = spotifyMatch1 || spotifyMatch2;
+      const info = await fetch(`https://api.spotify.com/v1/tracks/${id[1]}`, {
+        headers: { Authorization: `Bearer ${tokens}` },
+      });
+      const data = await info.json();
+      return {
+        title: data.name,
+        provider: 'Spotify',
+        artist: data.artists.name,
+        url: data.uri,
+      };
     } else {
       const info = await fetch(
         `https://www.youtube.com/oembed?url=https://youtu.be/${song}&format=json`
@@ -248,11 +281,12 @@ const getVideoInfo = async (song) => {
       return {
         title: data.title,
         provider: data.provider_name,
-        authorName: data.author_name,
+        artist: data.author_name,
         url: `https://youtu.be/${song}`,
       };
     }
   } catch (e) {
+    console.log(e);
     return { error: 'song not found' };
   }
 };
