@@ -28,7 +28,7 @@ const spotifyAuth = () => {
       const newData = {
         ...data,
         expires_in: moment()
-          .add(59, 'min')
+          .add(59, 'minutes')
           .unix(),
       };
       globals.db
@@ -69,7 +69,7 @@ const createRequest = async (values) => {
           ...video,
           user,
         });
-      return { status: 200, ...video, user, message: 'success' };
+      return { status: 200, ...video, channel, user, message: 'success' };
     } else {
       return {
         status: 200,
@@ -179,7 +179,8 @@ const playNext = async (values) => {
         .ref()
         .child(`${userRef}`)
         .update({ [user]: requestCount - 1 });
-      return Object.values(next.val())[0];
+      const song = Object.values(next.val())[0];
+      return { ...song, channel };
     }
     const user = Object.values(next.val())[1].user;
     const requestCount = await findUser(userRef, user);
@@ -187,9 +188,10 @@ const playNext = async (values) => {
       .ref()
       .child(`${userRef}`)
       .update({ [user]: requestCount - 1 });
-    return Object.values(next.val())[1];
+    const song = Object.values(next.val())[1];
+    return { ...song, channel };
   } catch (e) {
-    return { error: 'error fetching next' };
+    return { error: 'no songs in queue' };
   }
 };
 
@@ -202,6 +204,10 @@ module.exports = {
   playNext,
   spotifyAuth,
 };
+
+/*
+===================================== UTILS ====================================
+*/
 
 const findUser = async (ref, user) => {
   try {
@@ -227,7 +233,7 @@ const getSettings = async (channel) => {
         return snap;
       });
     if (!snap.val()) {
-      await globals.db
+      globals.db
         .ref()
         .child(`${channel}/${SETTINGS_REF}`)
         .set({ limit: 5, isOn: true });
@@ -291,28 +297,44 @@ const getVideoInfo = async (song) => {
     } else if (spotifyMatch1 || spotifyMatch2) {
       let tokens = await getSpotifyAuth();
       const id = spotifyMatch1 || spotifyMatch2;
-
-      if (moment().unix() < tokens.expires_in) {
+      if (!tokens || moment().unix() > tokens.expires_in) {
         tokens = await spotifyAuth();
+        return axios
+          .get(`https://api.spotify.com/v1/tracks/${id[1]}`, {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          })
+          .then((res) => {
+            const { name, artists, uri } = res.data;
+            const artist = artists.map((item) => item.name).join(', ');
+            return {
+              title: name,
+              provider: 'Spotify',
+              artist: artist,
+              url: uri,
+            };
+          })
+          .catch(async (err) => {
+            return { error: 'song not found' };
+          });
+      } else {
+        return axios
+          .get(`https://api.spotify.com/v1/tracks/${id[1]}`, {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          })
+          .then((res) => {
+            const { name, artists, uri } = res.data;
+            const artist = artists.map((item) => item.name).join(', ');
+            return {
+              title: name,
+              provider: 'Spotify',
+              artist: artist,
+              url: uri,
+            };
+          })
+          .catch(async (err) => {
+            return { error: 'song not found' };
+          });
       }
-
-      return axios
-        .get(`https://api.spotify.com/v1/tracks/${id[1]}`, {
-          headers: { Authorization: `Bearer ${tokens.access_token}` },
-        })
-        .then((res) => {
-          const { name, artists, uri } = res.data;
-          const artist = artists.map((item) => item.name).join(', ');
-          return {
-            title: name,
-            provider: 'Spotify',
-            artist: artist,
-            url: uri,
-          };
-        })
-        .catch(async (err) => {
-          return { error: 'song not found' };
-        });
     } else {
       return axios
         .get(

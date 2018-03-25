@@ -6,18 +6,19 @@ Everything will be stored under [user]/song-request
 ```
 const app = require('express')();
 const db = require('./db'); // Firebase reference
-const srmodule = require('song-request-module')(db); // Pass in the Firebase reference
+const SongRequestModule = require('song-request-module')(db); // Pass in the Firebase reference
 
-app.use('/song-request', srmodule);
+app.use('/song-request', SongRequestModule);
 
 app.listen(process.env.PORT, () => {
   console.log(`http://localhost:${process.env.PORT}`)
 });
 ```
 
-# Routes
+All POSTs expect a JSON.
+All Responses will be JSON.
 
-All POSTs expect a json body.
+# Routes
 
 * POST `/create`
 * POST `/toggle`
@@ -33,61 +34,80 @@ All errors will return:
 
 ```
 {
-	error: String
+  error: String
+  channel: String
 }
 ```
 
 ### POST `/create`
 
-Required POST body
+POST body
 
 ```
 {
-	channel: String,
-  user: String,
-  song: String,
+  "url": "spotify:track:0y080AoWs2PLxJZjuhjcEl",
+  "channel": "anne",
+  "user": "1234567",
 }
 ```
 
-Response:
+Example response:
 
 ```
 {
-  "authorName": String,
-  "provider": String,
-  "title": String,
-  "url": String,
-  "user": String
+  "status": 200,
+  "title": "Fallout",
+  "provider": "Spotify",
+  "artist": "Marianas Trench",
+  "url": "spotify:track:0y080AoWs2PLxJZjuhjcEl",
+  "channel": "anne",
+  "user": "12345",
+  "message": "success"
 }
 ```
 
-### POST `/toggle`
+### POST `/status`
 
-Required POST body
+POST body
 
 ```
 {
-	channel: String,
+  channel: String,
   status: Boolean
 }
 ```
 
 ### POST `/limit`
 
-Required POST body
+POST body
 
 ```
 {
-	channel: String,
+  channel: String,
   limit: Integer
 }
 ```
 
 ### POST `/play/next`
 
+POST Body
+
 ```
 {
-	channel: String
+  channel: String
+}
+```
+
+Response
+
+```
+{
+  "artist": "Marianas Trench",
+  "provider": "Spotify",
+  "title": "Fallout",
+  "url": "spotify:track:0y080AoWs2PLxJZjuhjcEl",
+  "user": "chatlurking",
+  "channel": "anne"
 }
 ```
 
@@ -98,7 +118,7 @@ Response:
 
 ```
 {
-  "authorName": String,
+  "artist": String,
   "provider": String,
   "title": String,
   "url": String,
@@ -112,7 +132,7 @@ This gets the current song that is playing.
 
 ```
 {
-  "authorName": String,
+  "artist": String,
   "provider": String,
   "title": String,
   "url": String,

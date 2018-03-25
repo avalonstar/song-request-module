@@ -5,7 +5,7 @@
   "author": "ChatLurking <anneglines@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "dev": "nodemon src/app/index.js"
+    "dev": "nodemon app/index.js"
   },
   "dependencies": {
     "axios": "^0.18.0",

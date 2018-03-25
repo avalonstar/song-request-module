@@ -17,7 +17,7 @@ router.post('/play/next', async (req, res) => {
     res.json(e);
   }
 });
-router.post('/toggle', async (req, res) => {
+router.post('/status', async (req, res) => {
   try {
     const result = handlers.setStatus(req.body);
     res.statusCode(200);
@@ -54,9 +54,12 @@ router.get('/current/:channel', async (req, res) => {
 router.get('/auth/spotify', async (req, res) => {
   try {
     const result = await handlers.spotifyAuth();
-    res.json({ message: 'pass' });
+    if (result.access_token !== null) {
+      res.json({ message: 'authed' });
+    }
+    res.json({ message: 'error' });
   } catch (e) {
-    res.json({ message: 'fail' });
+    res.json(e);
   }
 });
 
